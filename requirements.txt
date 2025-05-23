@@ -1,0 +1,2 @@
+python-telegram-bot
+tiktok_downloader
