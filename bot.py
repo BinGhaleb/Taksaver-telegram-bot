@@ -7,7 +7,7 @@ from telegram.constants import ChatMemberStatus
 from tiktok_downloader import snaptik
 
 # إعدادات البوت
-TOKEN = "848477745:AAE2jCkC_Ll5peJ_oOhdk-uh_6eWV3l7_iY"  # استبدل هذا بالتوكن الخاص ببوتك
+TOKEN = "848477745:AAGeqLDk4SSLd73HcDIrjXTk3hqkpz-UHy0"  # استبدل هذا بالتوكن الخاص ببوتك
 CHANNEL_ID = "@Typo2020"  # معرف القناة المطلوب الانضمام إليها
 
 # إعداد التسجيل
