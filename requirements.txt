@@ -1,7 +1,2 @@
-python-telegram-bot
-youtube-transcript-api
-pytube
-google-generativeai
-fastapi
-uvicorn
-
+python-telegram-bot==20.7
+yt-dlp==2024.3.10
