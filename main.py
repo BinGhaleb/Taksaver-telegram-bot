@@ -125,3 +125,27 @@ async def handle_link(update: Update, context) -> None:
         await status_message.delete()
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
+            logger.info(f"Deleted file: {file_path}")
+
+# ----------------------------------------------------------------------
+# 5. الدالة الرئيسية لتشغيل البوت
+def main() -> None:
+    """يشغل البوت."""
+    
+    # تأكد من وجود مجلد التحميلات
+    if not os.path.exists('downloads'):
+        os.makedirs('downloads')
+        
+    # إنشاء التطبيق
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    # إضافة المعالجات (Handlers)
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_link))
+
+    # بدء تشغيل البوت (Polling)
+    logger.info("Bot is running...")
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+if __name__ == '__main__':
+    main()
