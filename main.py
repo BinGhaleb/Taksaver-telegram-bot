@@ -1,16 +1,16 @@
 import logging
+import os
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from telegram.constants import ChatMemberStatus
 from yt_dlp import YoutubeDL
-import os
 
 # ----------------------------------------------------------------------
 # 1. إعدادات البوت والتوكن والقناة
 # التوكن: 431609800:AAHhRRmrC5wYk3V1uK5a-aRZO7aBDZvvTIk
 BOT_TOKEN = "431609800:AAHhRRmrC5wYk3V1uK5a-aRZO7aBDZvvTIk"
-# ID القناة الرقمي (المطلوب): -1002014674719
-REQUIRED_CHANNEL_ID = -1002014674719
+# ID القناة الرقمي (المُصحح): -1001490999062
+REQUIRED_CHANNEL_ID = -1001490999062
 CHANNEL_LINK = "https://t.me/Typo2020"
 
 # إعدادات التسجيل
@@ -25,12 +25,12 @@ async def check_subscription(user_id: int, bot: Bot) -> bool:
     """يتحقق مما إذا كان المستخدم مشتركًا في القناة المطلوبة."""
     try:
         member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=user_id)
-        # المستخدم مشترك إذا كان 'member' ليس BANNED أو LEFT
+        # يُعتبر المستخدم مشتركاً إذا كانت حالته ليست "مغادر" أو "محظور"
         is_subscribed = member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.BANNED)
         return is_subscribed
     except Exception as e:
         logger.error(f"Error checking subscription: {e}")
-        # إذا فشل التحقق (لأن البوت ليس مسؤولاً)، نعتبره غير مشترك لتجنب إساءة الاستخدام
+        # إذا حدث خطأ (عادةً بسبب عدم وجود صلاحيات كافية للبوت في القناة)، نفشل التحقق
         return False
 
 # ----------------------------------------------------------------------
@@ -40,7 +40,7 @@ async def start_command(update: Update, context) -> None:
     user = update.effective_user
     await update.message.reply_html(
         f"مرحباً بك يا {user.mention_html()}!\n\n"
-        "أنا بوت التحميل. أرسل لي رابط أي فيديو/ملف وسأحاول تحميله لك من معظم المواقع."
+        "أنا بوت التحميل. أرسل لي رابط أي فيديو/ملف وسأقوم بتحميله."
     )
 
 # ----------------------------------------------------------------------
@@ -53,6 +53,7 @@ async def handle_link(update: Update, context) -> None:
     
     # 4.1 التحقق من الاشتراك
     if not await check_subscription(user_id, bot):
+        # رسالة عدم الاشتراك
         await update.message.reply_text(
             "🛑 **عذراً، يجب عليك الاشتراك في القناة أولاً لتتمكن من استخدام البوت!**\n"
             f"اشترك هنا: {CHANNEL_LINK}\n\n"
@@ -67,24 +68,24 @@ async def handle_link(update: Update, context) -> None:
     
     # تهيئة yt-dlp
     ydl_opts = {
-        'format': 'best',  # اختيار أفضل جودة تلقائياً
+        'format': 'best',  # اختيار أفضل جودة
         'outtmpl': f'downloads/{user_id}_%(title)s.%(ext)s', # مسار واسم الملف
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
-        'max_filesize': 200 * 1024 * 1024, # تحديد أقصى حجم تحميل (مثال: 200 ميجابايت)
+        'max_filesize': 200 * 1024 * 1024, # تحديد أقصى حجم تحميل (200 ميجابايت كحد أقصى معقول للإرسال)
     }
     
     file_path = None
     try:
         with YoutubeDL(ydl_opts) as ydl:
-            # التحقق أولاً من معلومات الفيديو دون تحميل (لتقليل الخطأ)
+            # التحقق أولاً من معلومات الفيديو
             info_dict = ydl.extract_info(message_text, download=False)
             
-            # إذا كان حجم الملف يتجاوز الحد المسموح به في تيليجرام، نرسل تنبيهاً
+            # إذا كان حجم الملف يتجاوز الحد المسموح به
             if info_dict.get('filesize', 0) > 200 * 1024 * 1024 and info_dict.get('ext') in ['mp4', 'webm']:
                  await status_message.edit_text(
-                    f"⚠️ حجم الملف كبير جداً ({info_dict.get('filesize_approx', 'غير معروف')}). البوت محدود بحجم 200 ميجابايت."
+                    f"⚠️ حجم الملف كبير جداً. تجاوز الحد المسموح به (200 ميجابايت). حاول مع رابط آخر."
                 )
                  return
 
@@ -96,7 +97,7 @@ async def handle_link(update: Update, context) -> None:
         
         # 4.3 إرسال الملف
         
-        # تحديد الإرسال كـ فيديو إذا كان الامتداد mp4/webm وحجمه مناسب
+        # إرسال كفيديو إذا كان امتداد فيديو معروف
         if info_dict.get('ext') in ['mp4', 'webm', 'mkv', 'avi']:
              await update.message.reply_video(
                 video=open(file_path, 'rb'),
@@ -117,35 +118,10 @@ async def handle_link(update: Update, context) -> None:
         await status_message.edit_text(
             f"❌ حدث خطأ أثناء التحميل أو المعالجة.\n"
             f"قد يكون الرابط غير مدعوم أو هناك مشكلة في الموقع.\n"
-            f"الخطأ: {str(e)[:100]}..." # عرض جزء من الخطأ
+            f"الخطأ: {str(e)[:100]}..."
         )
     finally:
         # 4.4 تنظيف وحذف الملفات المؤقتة
         await status_message.delete()
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
-            logger.info(f"Deleted file: {file_path}")
-
-# ----------------------------------------------------------------------
-# 5. الدالة الرئيسية لتشغيل البوت
-def main() -> None:
-    """يشغل البوت."""
-    
-    # تأكد من وجود مجلد التحميلات
-    if not os.path.exists('downloads'):
-        os.makedirs('downloads')
-        
-    # إنشاء التطبيق
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    # إضافة المعالجات (Handlers)
-    application.add_handler(CommandHandler("start", start_command))
-    # يستقبل كل رسالة نصية قد تكون رابطاً (باستثناء الأوامر)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_link))
-
-    # بدء تشغيل البوت (Polling)
-    logger.info("Bot is running...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-if __name__ == '__main__':
-    main()
